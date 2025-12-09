@@ -1,0 +1,38 @@
+@prefix eva: <http://example.org/vocab/evaluations#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Vocabulaire : Évaluations des étudiants
+
+# Classes
+eva:Etudiant rdf:type rdfs:Class .
+eva:Cours rdf:type rdfs:Class .
+eva:Evaluation rdf:type rdfs:Class .
+
+# Propriétés pour Etudiant
+eva:aPourNom rdf:type rdf:Property ;
+    rdfs:domain eva:Etudiant ;
+    rdfs:range xsd:string .
+
+eva:estDansCours rdf:type rdf:Property ;
+    rdfs:domain eva:Etudiant ;
+    rdfs:range eva:Cours .
+
+# Propriétés pour Cours
+eva:aPourTitre rdf:type rdf:Property ;
+    rdfs:domain eva:Cours ;
+    rdfs:range xsd:string .
+
+# Propriétés para Evaluation
+eva:evalueEtudiant rdf:type rdf:Property ;
+    rdfs:domain eva:Evaluation ;
+    rdfs:range eva:Etudiant .
+
+eva:dansCours rdf:type rdf:Property ;
+    rdfs:domain eva:Evaluation ;
+    rdfs:range eva:Cours .
+
+eva:aPourNote rdf:type rdf:Property ;
+    rdfs:domain eva:Evaluation ;
+    rdfs:range xsd:decimal .

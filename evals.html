@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Évaluations des étudiants</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        .eval {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        select,
+        input {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Évaluations des étudiants</h1>
+    <div id="evals-container"></div>
+
+    <h2>Ajouter une évaluation</h2>
+    <form id="add-eval-form">
+        <label>Étudiant:
+            <select id="student-select" required>
+                <option value="">Sélectionnez un étudiant</option>
+            </select>
+        </label><br>
+
+        <label>Cours:
+            <select id="course-select" required disabled>
+                <option value="">Sélectionnez un cours</option>
+            </select>
+        </label><br>
+        <label>Note: <input type="number" step="0.01" id="note" required></label><br>
+        <button type="submit">Enregistrer l'évaluation</button>
+    </form>
+
+    <script>
+        const OMKA_API_URL = "http://localhost/omk_THyp_25-26_clone/api/items";
+
+        const EVAL_RESOURCE_TEMPLATE_ID = 3;
+        const STUDENT_RESOURCE_TEMPLATE_ID = 2;
+        const COURS_RESOURCE_TEMPLATE_ID = 4;
+        const PROP_ETUDIANT = 198;
+        const PROP_COURS = 199;
+        const PROP_NOTE = 200;
+
+        let studentsData = [];
+
+        async function loadStudents() {
+            const res = await fetch(`${OMKA_API_URL}?resource_template_id=${STUDENT_RESOURCE_TEMPLATE_ID}`);
+            studentsData = await res.json();
+
+            const studentSelect = document.getElementById("student-select");
+
+            studentsData.forEach(etu => {
+                const option = document.createElement("option");
+                option.value = etu['o:id'];
+                option.textContent = etu['o:title'] || "Nom inconnu";
+                studentSelect.appendChild(option);
+            });
+
+            studentSelect.addEventListener("change", handleStudentChange);
+        }
+
+        function handleStudentChange() {
+            const studentId = parseInt(this.value);
+            const courseSelect = document.getElementById("course-select");
+
+            Array.from(courseSelect.options).forEach(opt => {
+                if (opt.value !== "") {
+                    courseSelect.removeChild(opt);
+                }
+            });
+
+            if (!studentId) {
+                courseSelect.disabled = true;
+                return;
+            }
+
+            const student = studentsData.find(s => s['o:id'] === studentId);
+            const courses = student['eva:estDansCours'] || [];
+
+            courses.forEach(c => {
+                console.log(c);
+                const option = document.createElement("option");
+                option.value = c.value_resource_id;
+                option.textContent = c.display_title || "Cours inconnu";
+                courseSelect.appendChild(option);
+            });
+
+            courseSelect.disabled = false;
+        }
+
+        async function getEvals() {
+            try {
+                const response = await fetch(`${OMKA_API_URL}?resource_template_id=${EVAL_RESOURCE_TEMPLATE_ID}`);
+                const evalsData = await response.json();
+
+                return evalsData.map(evalItem => {
+                    const id = evalItem['o:id'];
+                    const note = evalItem.values['eva:aPourNote']?.[0]?.value || "Sans note";
+                    const etudiant = evalItem.values['eva:evalueEtudiant']?.[0]?.value_label || "Étudiant inconnu";
+                    const cours = evalItem.values['eva:dansCours']?.[0]?.value_label || "Cours inconnu";
+                    return { id, note, etudiant, cours };
+                });
+
+            } catch (error) {
+                console.error("Erreur lors de la récupération des évaluations :", error);
+                return [];
+            }
+        }
+
+        function showEvals(evalList) {
+            const container = document.getElementById("evals-container");
+            container.innerHTML = "";
+
+            evalList.forEach(evalItem => {
+                const evalDiv = document.createElement("div");
+                evalDiv.className = "eval";
+
+                evalDiv.innerHTML = `
+            <strong>ID:</strong> ${evalItem.id} <br>
+            <strong>Étudiant:</strong> ${evalItem.etudiant} <br>
+            <strong>Cours:</strong> ${evalItem.cours} <br>
+            <strong>Note:</strong> ${evalItem.note}
+        `;
+                container.appendChild(evalDiv);
+            });
+        }
+
+        async function setEval(etudiantId, coursId, note) {
+            try {
+                const key_identity = "vmMNAKWVu4AHZcjUrb9S6XlY4vVInKLN";
+                const key_credential = "0lOg8lBw9fvPwSlEaVWTXuda3aCGpGuY";
+                console.log("Enregistrement de l'évaluation pour l'étudiant ID", etudiantId, "dans le cours ID", coursId, "avec la note", note);
+
+                const payload = {
+                    "@type": "o:Item",
+                    "o:resource_class": { "o:id": 113 },
+                    "o:resource_template": { "o:id": EVAL_RESOURCE_TEMPLATE_ID },
+                    [PROP_ETUDIANT]: [
+                        { "type": "resource", "property_id": PROP_ETUDIANT, "value_resource_id": studentId }
+                    ],
+                    [PROP_COURSE_UNIV]: [
+                        { "type": "resource", "property_id": PROP_COURSE_UNIV, "value_resource_id": courseId }
+                    ],
+                    [PROP_NOTE]: [
+                        { "type": "literal", "property_id": PROP_NOTE, "@value": note.toString() }
+                    ]
+                };
+
+                const url = `${OMKA_API_URL}?key_identity=${key_identity}&key_credential=${key_credential}`;
+
+                const res = await fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!res.ok) throw new Error("Erreur lors de l'enregistrement de l'évaluation");
+
+                const newEval = await res.json();
+                alert(`Évaluation enregistrée avec ID ${newEval['o:id']}`);
+                const evals = await getEvals();
+                showEvals(evals);
+
+            } catch (error) {
+                console.error(error);
+                alert("Impossible d'enregistrer l'évaluation (CORS ou autre erreur)");
+            }
+        }
+
+
+        document.getElementById("add-eval-form").addEventListener("submit", function (e) {
+            e.preventDefault();
+            const etudiantId = parseInt(document.getElementById("student-select").value);
+            const coursId = parseInt(document.getElementById("course-select").value);
+            const note = parseFloat(document.getElementById("note").value);
+
+            if (!etudiantId || !coursId) {
+                alert("Veuillez sélectionner un étudiant et un cours valides.");
+                return;
+            }
+
+            setEval(etudiantId, coursId, note);
+        });
+
+        async function init() {
+            document.getElementById("course-select").disabled = true;
+
+            await loadStudents();
+            const evals = await getEvals();
+            showEvals(evals);
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

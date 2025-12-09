@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Liste des cours</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        .cours {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .etudiants {
+            margin-left: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Liste des cours</h1>
+    <div id="cours-container"></div>
+
+    <script>
+        const OMKA_API_URL = "http://localhost/omk_THyp_25-26_clone/api/items";
+
+
+        const COURS_RESOURCE_TEMPLATE_ID = 4;
+        const STUDENT_RESOURCE_TEMPLATE_ID = 2;
+
+        async function getCours() {
+            try {
+                const coursesRes = await fetch(`${OMKA_API_URL}?resource_template_id=${COURS_RESOURCE_TEMPLATE_ID}`);
+                const coursesData = await coursesRes.json();
+
+                const studentsRes = await fetch(`${OMKA_API_URL}?resource_template_id=${STUDENT_RESOURCE_TEMPLATE_ID}`);
+                const studentsData = await studentsRes.json();
+
+                const coursList = coursesData.map(cours => {
+                    const titre = cours['o:title'] || "Sans titre";
+
+
+                    const etudiants = studentsData
+                        .filter(etu => etu['eva:estDansCours'].map(c => c.value_resource_id).includes(cours['o:id']))
+                        .map(etu => etu['o:title'] || "Nom inconnu");
+
+                    return { id: cours['o:id'], titre, etudiants };
+                });
+
+                return coursList;
+
+            } catch (error) {
+                console.error("Erreur lors de la récupération des cours :", error);
+                return [];
+            }
+        }
+
+
+        function showCours(coursList) {
+            const container = document.getElementById("cours-container");
+            container.innerHTML = "";
+
+            coursList.forEach(cours => {
+                const coursDiv = document.createElement("div");
+                coursDiv.className = "cours";
+
+                const titre = document.createElement("h2");
+                titre.textContent = `ID: ${cours.id} - ${cours.titre}`;
+                coursDiv.appendChild(titre);
+
+                const etudiantsDiv = document.createElement("div");
+                etudiantsDiv.className = "etudiants";
+                etudiantsDiv.innerHTML = "<strong>Étudiants inscrits :</strong>";
+
+                const ul = document.createElement("ul");
+                cours.etudiants.forEach(etudiant => {
+                    const li = document.createElement("li");
+                    li.textContent = etudiant;
+                    ul.appendChild(li);
+                });
+                etudiantsDiv.appendChild(ul);
+
+                coursDiv.appendChild(etudiantsDiv);
+                container.appendChild(coursDiv);
+            });
+        }
+
+        getCours().then(showCours);
+
+    </script>
+</body>
+
+</html>
